@@ -143,5 +143,59 @@ For multiple documents
 `Delete` deletes a document.
 
 	_, err := client.Delete(ctx, doc)
+
+# Queries
+
+You can use SQL to select documents from a collection. Begin with the collection, and
+build up a query using Select, Where and other methods of Query.
+
+	q := states.Where("pop", ">", 10).OrderBy("pop", firestore.Desc)
+
+Supported operators include '<', '<=', '>', '>=', '==', 'in', 'array-contains', and
+'array-contains-any'.
+
+Call the Query's Documents method to get an iterator, and use it like
+the other Google Cloud Client iterators.
+
+	iter := q.Documents(ctx)
+	defer iter.Stop()
+	for {
+		doc, err := iter.Next()
+		if err == iterator.Done {
+			break
+		}
+		if err != nil {
+			// TODO: Handle error.
+		}
+		fmt.Println(doc.Data())
+	}
+
+To get all the documents in a collection, you can use the collection itself
+as a query.
+
+	iter = client.Collection("States").Documents(ctx)
+
+# Collection Group Partition Queries
+
+You can partition the documents of a Collection Group allowing for smaller subqueries.
+
+	collectionGroup = client.CollectionGroup("States")
+	partitions, err = collectionGroup.GetPartitionedQueries(ctx, 20)
+
+You can also Serialize/Deserialize queries making it possible to run/stream the
+queries elsewhere; another process or machine for instance.
+
+	queryProtos := make([][]byte, 0)
+	for _, query := range partitions {
+		protoBytes, err := query.Serialize()
+		// handle err
+		queryProtos = append(queryProtos, protoBytes)
+		...
+	}
+
+	for _, protoBytes := range queryProtos {
+		query, err := client.CollectionGroup("").Deserialize(protoBytes)
+		...
+	}
 */
 package simplestore

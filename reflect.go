@@ -173,10 +173,86 @@ func (c *Client) getDocumentRefListSafeWithSameType(os []*any) ([]*firestore.Doc
 	return docList, nil
 }
 
-func (c *Client) getCollectionRef(os []*any) (*firestore.CollectionRef, error) {
-	t := reflect.TypeOf(os).Elem().Elem()
+type targetBuilder struct {
+	parent         *any
+	target         *[]*any
+	elementType    reflect.Type
+	collectionName string
+}
+
+func newTargetBuilder(pos *[]*any) (*targetBuilder, error) {
+	t := reflect.TypeOf(pos).Elem().Elem().Elem()
 	if t.Kind() != reflect.Struct {
 		return nil, NewProgrammingError("value must be a pointer of a struct")
 	}
-	return c.FirestoreClient.Collection(t.Name()), nil
+	return &targetBuilder{
+		target:         pos,
+		elementType:    t,
+		collectionName: t.Name(),
+	}, nil
+}
+
+func newTargetBuilderWithParent(parent *any, pos *[]*any) (*targetBuilder, error) {
+	t := reflect.TypeOf(pos).Elem().Elem().Elem()
+	if t.Kind() != reflect.Struct {
+		return nil, NewProgrammingError("value must be a pointer of a struct")
+	}
+	parentT := reflect.TypeOf(parent)
+	parentF, ok := t.FieldByName(ParentFieldName)
+	if !ok {
+		return nil, NewProgrammingErrorf("value must have "+ParentFieldName+" field with type %s.%s", parentT.PkgPath(), parentT.Name())
+	}
+	if !parentT.AssignableTo(parentF.Type) {
+		return nil, NewProgrammingErrorf(ParentFieldName+" field must be %s.%s", parentT.PkgPath(), parentT.Name())
+	}
+	return &targetBuilder{
+		target:         pos,
+		parent:         parent,
+		elementType:    t,
+		collectionName: t.Name(),
+	}, nil
+}
+
+func (t *targetBuilder) createElement() any {
+	pv := reflect.New(t.elementType)
+	if t.parent != nil {
+		pv.Elem().FieldByName(ParentFieldName).Set(reflect.ValueOf(t.parent))
+	}
+	return pv
+}
+
+func (t *targetBuilder) append(o *any) {
+	t.target = reflect.Append(
+		reflect.ValueOf(t.target).Elem(),
+		reflect.ValueOf(o),
+	).Addr().Interface().(*[]*any)
+}
+
+func (c *Client) getCollectionRef(pos *[]*any) (*firestore.CollectionRef, *targetBuilder, error) {
+	tb, err := newTargetBuilder(pos)
+	if err != nil {
+		return nil, nil, err
+	}
+	return c.FirestoreClient.Collection(tb.collectionName), tb, nil
+}
+
+func (c *Client) getCollectionGroupRef(pos *[]*any) (*firestore.CollectionGroupRef, *targetBuilder, error) {
+	tb, err := newTargetBuilder(pos)
+	if err != nil {
+		return nil, nil, err
+	}
+	return c.FirestoreClient.CollectionGroup(tb.collectionName), tb, nil
+}
+
+func (c *Client) getNestedCollectionRef(parent *any, pos *[]*any) (*firestore.CollectionRef, *targetBuilder, error) {
+	tb, err := newTargetBuilderWithParent(parent, pos)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	doc, err := c.GetDocumentRefSafe(parent)
+	if err != nil {
+		return nil, nil, err
+	}
+	return doc.Collection(tb.collectionName), tb, nil
 }
