@@ -24,6 +24,10 @@ THE SOFTWARE.
 Package simplestore provides a wrapper for `cloud.google.com/go/firestore`.
 It handles collection names based on struct names.
 
+# Performance
+
+simpleclient utilizes reflection, the performance is not so good.
+
 # Creating a Client
 
 	ctx := context.Background()
@@ -197,5 +201,15 @@ queries elsewhere; another process or machine for instance.
 		query, err := client.CollectionGroup("").Deserialize(protoBytes)
 		...
 	}
+
+# Type safed client
+
+Many parameters of simpleclient.Client is typed `any`, and you can easily create runtime errors by passing unmached types.
+You can use TypeSafedClient to avoid type assertion errors:
+
+	doc := &MyDocument {
+		ID: "docid",
+	}
+	err := TypeSafed[MyDocument](client).Get(ctx, doc)	// you can restrict to pass *MyDocument
 */
 package simplestore

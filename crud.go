@@ -9,8 +9,8 @@ import (
 
 // Get retrieves a document from firestore
 // o must be a pointer to a struct.
-// Fill o with found documents
-func (c *Client) Get(ctx context.Context, o *any) error {
+// Fill o with the found document.
+func (c *Client) Get(ctx context.Context, o any) error {
 	doc, err := c.GetDocumentRefSafe(o)
 	if err != nil {
 		return err
@@ -24,10 +24,10 @@ func (c *Client) Get(ctx context.Context, o *any) error {
 
 // GetAll retrieves multiple documents from firestore
 // os must be a slice of a pointer to a struct.
-// Fill o with found documents.
+// Fill os with found documents.
 // Returns slice of found objects.
-func (c *Client) GetAll(ctx context.Context, os []*any) ([]*any, error) {
-	docList, err := c.getDocumentRefListSafeWithSameType(os)
+func (c *Client) GetAll(ctx context.Context, os any) (any, error) {
+	docList, err := c.GetDocumentRefListSafe(os)
 	if err != nil {
 		return nil, err
 	}
@@ -36,32 +36,35 @@ func (c *Client) GetAll(ctx context.Context, os []*any) ([]*any, error) {
 	}
 	validList := make([]*firestore.DocumentRef, 0, len(docList))
 	// make dstList as same type of os
-	dstType := reflect.TypeOf(os)
-	dstList := reflect.MakeSlice(dstType, 0, len(docList)).Interface().([]*any)
+	osRef := reflect.ValueOf(os)
+	dstList := reflect.MakeSlice(osRef.Type(), 0, len(docList))
 	for idx, doc := range docList {
 		if doc == nil {
 			continue
 		}
 		validList = append(validList, doc)
-		dstList = append(dstList, os[idx])
+		dstList = reflect.Append(dstList, osRef.Index(idx))
 	}
 	docsnapList, err := c.FirestoreClient.GetAll(ctx, validList)
 	if err != nil {
 		return nil, err
 	}
 	for idx, docsnap := range docsnapList {
-		err := docsnap.DataTo(dstList[idx])
+		if !docsnap.Exists() {
+			continue
+		}
+		err := docsnap.DataTo(dstList.Index(idx).Interface())
 		if err != nil {
 			return nil, err
 		}
 	}
-	return dstList, nil
+	return dstList.Interface(), nil
 }
 
 // Create creates a new document in firestore
 // o must be a pointer to a struct.
-// Generates and sets ID if not set
-func (c *Client) Create(ctx context.Context, o *any) (*firestore.WriteResult, error) {
+// Generates and sets ID if not set.
+func (c *Client) Create(ctx context.Context, o any) (*firestore.WriteResult, error) {
 	doc, setID, err := c.prepareSetDocument(o)
 	if err != nil {
 		return nil, err
@@ -76,8 +79,8 @@ func (c *Client) Create(ctx context.Context, o *any) (*firestore.WriteResult, er
 
 // Set updates a document if exists nor create a new document
 // o must be a pointer to a struct.
-// Generates and sets ID if not set
-func (c *Client) Set(ctx context.Context, o *any, opts ...firestore.SetOption) (*firestore.WriteResult, error) {
+// Generates and sets ID if not set.
+func (c *Client) Set(ctx context.Context, o any, opts ...firestore.SetOption) (*firestore.WriteResult, error) {
 	doc, setID, err := c.prepareSetDocument(o)
 	if err != nil {
 		return nil, err
@@ -92,7 +95,7 @@ func (c *Client) Set(ctx context.Context, o *any, opts ...firestore.SetOption) (
 
 // Delete deletes a document
 // o must be a pointer to a struct.
-func (c *Client) Delete(ctx context.Context, o *any, opts ...firestore.Precondition) (*firestore.WriteResult, error) {
+func (c *Client) Delete(ctx context.Context, o any, opts ...firestore.Precondition) (*firestore.WriteResult, error) {
 	doc, err := c.GetDocumentRefSafe(o)
 	if err != nil {
 		return nil, err

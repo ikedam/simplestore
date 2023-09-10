@@ -13,8 +13,9 @@ type Query struct {
 }
 
 // QuerySafe starts a new query for target
+// target must be a pointer to slice of pointers to structs.
 // target is also used as destination of `GetAll()`.
-func (c *Client) QuerySafe(target *[]*any) (*Query, error) {
+func (c *Client) QuerySafe(target any) (*Query, error) {
 	collection, tb, err := c.getCollectionRef(target)
 	if err != nil {
 		return nil, err
@@ -26,9 +27,10 @@ func (c *Client) QuerySafe(target *[]*any) (*Query, error) {
 }
 
 // Query starts a new query for target
+// target must be a pointer to slice of pointers to structs.
 // target is also used as destination of `GetAll()`.
 // Panic if inappropriate target is specified.
-func (c *Client) Query(target *[]*any) *Query {
+func (c *Client) Query(target any) *Query {
 	q, err := c.QuerySafe(target)
 	if err != nil {
 		panic(err)
@@ -37,8 +39,9 @@ func (c *Client) Query(target *[]*any) *Query {
 }
 
 // QueryGroupSafe starts a new query for target as collection group
+// target must be a pointer to slice of pointers to structs.
 // target is also used as destination of `GetAll()`.
-func (c *Client) QueryGroupSafe(target *[]*any) (*Query, error) {
+func (c *Client) QueryGroupSafe(target any) (*Query, error) {
 	cgroup, tb, err := c.getCollectionGroupRef(target)
 	if err != nil {
 		return nil, err
@@ -50,9 +53,10 @@ func (c *Client) QueryGroupSafe(target *[]*any) (*Query, error) {
 }
 
 // QueryGroup starts a new query for target as collection group
+// target must be a pointer to slice of pointers to structs.
 // target is also used as destination of `GetAll()`.
 // Panic if inappropriate target is specified.
-func (c *Client) QueryGroup(target *[]*any) *Query {
+func (c *Client) QueryGroup(target any) *Query {
 	q, err := c.QueryGroupSafe(target)
 	if err != nil {
 		panic(err)
@@ -61,8 +65,10 @@ func (c *Client) QueryGroup(target *[]*any) *Query {
 }
 
 // QueryNested starts a new query for target under the document specified by `parent`
+// parent must be a pointer to a struct.
+// target must be a pointer to slice of pointers to structs.
 // target is also used as destination of `GetAll()`.
-func (c *Client) QueryNested(parent *any, target *[]*any) (*Query, error) {
+func (c *Client) QueryNested(parent any, target any) (*Query, error) {
 	cgroup, tb, err := c.getNestedCollectionRef(parent, target)
 	if err != nil {
 		return nil, err
@@ -74,7 +80,8 @@ func (c *Client) QueryNested(parent *any, target *[]*any) (*Query, error) {
 }
 
 // Iter runs query and calls callback for each document
-func (q *Query) Iter(ctx context.Context, f func(o *any) error) error {
+// A pointer to a struct is passed.
+func (q *Query) Iter(ctx context.Context, f func(o any) error) error {
 	iter := q.q.Documents(ctx)
 	defer iter.Stop()
 	for {
@@ -90,7 +97,7 @@ func (q *Query) Iter(ctx context.Context, f func(o *any) error) error {
 		if err != nil {
 			return err
 		}
-		err = f(dst.(*any))
+		err = f(dst)
 		if err != nil {
 			return err
 		}
@@ -101,7 +108,7 @@ func (q *Query) Iter(ctx context.Context, f func(o *any) error) error {
 // GetAll runs query and retrieve all results
 // results are stored to `target` passed in `Query()`, `QueryGroup()` or `QueryNested()`
 func (q *Query) GetAll(ctx context.Context) error {
-	return q.Iter(ctx, func(o *any) error {
+	return q.Iter(ctx, func(o any) error {
 		q.tb.append(o)
 		return nil
 	})

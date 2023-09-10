@@ -18,7 +18,9 @@ type accessor struct {
 }
 
 func newAccessor(pt reflect.Type) (*accessor, error) {
-	// pt must be a pointer.
+	if pt.Kind() != reflect.Pointer {
+		return nil, NewProgrammingError("value must be a pointer of a struct")
+	}
 	t := pt.Elem()
 	a := &accessor{
 		t: t,
@@ -88,13 +90,10 @@ func (a *accessor) setID(pv reflect.Value, id string) {
 }
 
 // GetDocumentRefSafe returns document ref of the object
+// o must be a pointer to a struct.
 // Returns nil if object is a nil.
 // Error if ID is not set.
-func (c *Client) GetDocumentRefSafe(o *any) (*firestore.DocumentRef, error) {
-	if o == nil {
-		// fast return
-		return nil, nil
-	}
+func (c *Client) GetDocumentRefSafe(o any) (*firestore.DocumentRef, error) {
 	accessor, err := newAccessor(reflect.TypeOf(o))
 	if err != nil {
 		return nil, err
@@ -105,7 +104,7 @@ func (c *Client) GetDocumentRefSafe(o *any) (*firestore.DocumentRef, error) {
 
 func nop() {}
 
-func (c *Client) prepareSetDocument(o *any) (*firestore.DocumentRef, func(), error) {
+func (c *Client) prepareSetDocument(o any) (*firestore.DocumentRef, func(), error) {
 	accessor, err := newAccessor(reflect.TypeOf(o))
 	if err != nil {
 		return nil, nil, err
@@ -127,9 +126,10 @@ func (c *Client) prepareSetDocument(o *any) (*firestore.DocumentRef, func(), err
 }
 
 // GetDocumentRef returns document ref of the object
+// o must be a pointer to a struct.
 // Returns nil if object is a nil.
 // Panic if inappropriate value passed.
-func (c *Client) GetDocumentRef(o *any) *firestore.DocumentRef {
+func (c *Client) GetDocumentRef(o any) *firestore.DocumentRef {
 	doc, err := c.GetDocumentRefSafe(o)
 	if err != nil {
 		panic(err)
@@ -138,15 +138,24 @@ func (c *Client) GetDocumentRef(o *any) *firestore.DocumentRef {
 }
 
 // GetDocumentRefListSafe returns a list of document refs of the objects
+// os must be a slice of a pointer to a struct.
 // Be aware that return value may contain `nil`.
-func (c *Client) GetDocumentRefListSafe(os []*any) ([]*firestore.DocumentRef, error) {
-	elemType := reflect.TypeOf(os).Elem().Elem() // type of *(os[idx])
+func (c *Client) GetDocumentRefListSafe(os any) ([]*firestore.DocumentRef, error) {
+	osT := reflect.TypeOf(os)
+	if osT.Kind() != reflect.Slice {
+		return nil, NewProgrammingError("expects a slice of pointers to structs")
+	}
+	poT := osT.Elem()
+	if poT.Kind() != reflect.Pointer {
+		return nil, NewProgrammingError("expects a slice of pointers to structs")
+	}
+	elemType := poT.Elem()
 	if elemType.Kind() == reflect.Struct {
 		// all elements are same type
 		return c.getDocumentRefListSafeWithSameType(os)
 	}
 	var docList []*firestore.DocumentRef
-	for _, o := range os {
+	for _, o := range os.([]any) {
 		doc, err := c.GetDocumentRefSafe(o)
 		if err != nil {
 			return nil, err
@@ -156,14 +165,14 @@ func (c *Client) GetDocumentRefListSafe(os []*any) ([]*firestore.DocumentRef, er
 	return docList, nil
 }
 
-func (c *Client) getDocumentRefListSafeWithSameType(os []*any) ([]*firestore.DocumentRef, error) {
+func (c *Client) getDocumentRefListSafeWithSameType(os any) ([]*firestore.DocumentRef, error) {
 	accessor, err := newAccessor(reflect.TypeOf(os).Elem())
 	if err != nil {
 		return nil, err
 	}
 
 	var docList []*firestore.DocumentRef
-	for _, o := range os {
+	for _, o := range os.([]any) {
 		doc, _, err := accessor.getDocumentRef(c, reflect.ValueOf(o), false)
 		if err != nil {
 			return nil, err
@@ -174,14 +183,26 @@ func (c *Client) getDocumentRefListSafeWithSameType(os []*any) ([]*firestore.Doc
 }
 
 type targetBuilder struct {
-	parent         *any
-	target         *[]*any
+	parent         any
+	target         any
 	elementType    reflect.Type
 	collectionName string
 }
 
-func newTargetBuilder(pos *[]*any) (*targetBuilder, error) {
-	t := reflect.TypeOf(pos).Elem().Elem().Elem()
+func newTargetBuilder(pos any) (*targetBuilder, error) {
+	posT := reflect.TypeOf(pos)
+	if posT.Kind() != reflect.Pointer {
+		return nil, NewProgrammingError("expects a pointer to a slice of pointers to structs")
+	}
+	osT := posT.Elem()
+	if osT.Kind() != reflect.Slice {
+		return nil, NewProgrammingError("expects a pointer to a slice of pointers to structs")
+	}
+	poT := osT.Elem()
+	if poT.Kind() != reflect.Pointer {
+		return nil, NewProgrammingError("value must be a pointer of a struct")
+	}
+	t := poT.Elem()
 	if t.Kind() != reflect.Struct {
 		return nil, NewProgrammingError("value must be a pointer of a struct")
 	}
@@ -192,8 +213,20 @@ func newTargetBuilder(pos *[]*any) (*targetBuilder, error) {
 	}, nil
 }
 
-func newTargetBuilderWithParent(parent *any, pos *[]*any) (*targetBuilder, error) {
-	t := reflect.TypeOf(pos).Elem().Elem().Elem()
+func newTargetBuilderWithParent(parent any, pos any) (*targetBuilder, error) {
+	posT := reflect.TypeOf(pos)
+	if posT.Kind() != reflect.Pointer {
+		return nil, NewProgrammingError("expects a pointer to a slice of pointers to structs")
+	}
+	osT := posT.Elem()
+	if osT.Kind() != reflect.Slice {
+		return nil, NewProgrammingError("expects a pointer to a slice of pointers to structs")
+	}
+	poT := osT.Elem()
+	if poT.Kind() != reflect.Pointer {
+		return nil, NewProgrammingError("value must be a pointer of a struct")
+	}
+	t := poT.Elem()
 	if t.Kind() != reflect.Struct {
 		return nil, NewProgrammingError("value must be a pointer of a struct")
 	}
@@ -218,17 +251,17 @@ func (t *targetBuilder) createElement() any {
 	if t.parent != nil {
 		pv.Elem().FieldByName(ParentFieldName).Set(reflect.ValueOf(t.parent))
 	}
-	return pv
+	return pv.Interface()
 }
 
-func (t *targetBuilder) append(o *any) {
+func (t *targetBuilder) append(o any) {
 	t.target = reflect.Append(
 		reflect.ValueOf(t.target).Elem(),
 		reflect.ValueOf(o),
-	).Addr().Interface().(*[]*any)
+	).Addr().Interface()
 }
 
-func (c *Client) getCollectionRef(pos *[]*any) (*firestore.CollectionRef, *targetBuilder, error) {
+func (c *Client) getCollectionRef(pos any) (*firestore.CollectionRef, *targetBuilder, error) {
 	tb, err := newTargetBuilder(pos)
 	if err != nil {
 		return nil, nil, err
@@ -236,7 +269,7 @@ func (c *Client) getCollectionRef(pos *[]*any) (*firestore.CollectionRef, *targe
 	return c.FirestoreClient.Collection(tb.collectionName), tb, nil
 }
 
-func (c *Client) getCollectionGroupRef(pos *[]*any) (*firestore.CollectionGroupRef, *targetBuilder, error) {
+func (c *Client) getCollectionGroupRef(pos any) (*firestore.CollectionGroupRef, *targetBuilder, error) {
 	tb, err := newTargetBuilder(pos)
 	if err != nil {
 		return nil, nil, err
@@ -244,7 +277,7 @@ func (c *Client) getCollectionGroupRef(pos *[]*any) (*firestore.CollectionGroupR
 	return c.FirestoreClient.CollectionGroup(tb.collectionName), tb, nil
 }
 
-func (c *Client) getNestedCollectionRef(parent *any, pos *[]*any) (*firestore.CollectionRef, *targetBuilder, error) {
+func (c *Client) getNestedCollectionRef(parent any, pos any) (*firestore.CollectionRef, *targetBuilder, error) {
 	tb, err := newTargetBuilderWithParent(parent, pos)
 	if err != nil {
 		return nil, nil, err
