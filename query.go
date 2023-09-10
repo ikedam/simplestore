@@ -8,8 +8,9 @@ import (
 )
 
 type Query struct {
-	q  firestore.Query
-	tb *targetBuilder
+	q           firestore.Query
+	tb          *targetBuilder
+	transaction *firestore.Transaction
 }
 
 // QuerySafe starts a new query for target
@@ -21,8 +22,9 @@ func (c *Client) QuerySafe(target any) (*Query, error) {
 		return nil, err
 	}
 	return &Query{
-		q:  collection.Query,
-		tb: tb,
+		q:           collection.Query,
+		tb:          tb,
+		transaction: c.FirestoreTransaction,
 	}, nil
 }
 
@@ -47,8 +49,9 @@ func (c *Client) QueryGroupSafe(target any) (*Query, error) {
 		return nil, err
 	}
 	return &Query{
-		q:  cgroup.Query,
-		tb: tb,
+		q:           cgroup.Query,
+		tb:          tb,
+		transaction: c.FirestoreTransaction,
 	}, nil
 }
 
@@ -74,15 +77,21 @@ func (c *Client) QueryNested(parent any, target any) (*Query, error) {
 		return nil, err
 	}
 	return &Query{
-		q:  cgroup.Query,
-		tb: tb,
+		q:           cgroup.Query,
+		tb:          tb,
+		transaction: c.FirestoreTransaction,
 	}, nil
 }
 
 // Iter runs query and calls callback for each document
 // A pointer to a struct is passed.
 func (q *Query) Iter(ctx context.Context, f func(o any) error) error {
-	iter := q.q.Documents(ctx)
+	var iter *firestore.DocumentIterator
+	if q.transaction == nil {
+		iter = q.q.Documents(ctx)
+	} else {
+		iter = q.transaction.Documents(q.q)
+	}
 	defer iter.Stop()
 	for {
 		doc, err := iter.Next()

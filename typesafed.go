@@ -50,22 +50,26 @@ func (c *TypeSafedClient[T, P]) GetAll(ctx context.Context, os []*T) ([]*T, erro
 
 // Create creates a new document in firestore
 // Generates and sets ID if not set.
+// WriteResult will be alwasys `nil` while transaction.
 func (c *TypeSafedClient[T, P]) Create(ctx context.Context, o *T) (*firestore.WriteResult, error) {
 	return c.untyped.Create(ctx, o)
 }
 
 // Set updates a document if exists nor create a new document
 // Generates and sets ID if not set.
+// WriteResult will be alwasys `nil` while transaction.
 func (c *TypeSafedClient[T, P]) Set(ctx context.Context, o *T, opts ...firestore.SetOption) (*firestore.WriteResult, error) {
 	return c.untyped.Set(ctx, o, opts...)
 }
 
 // Delete deletes a document
 // o must be a pointer to a struct.
+// WriteResult will be alwasys `nil` while transaction.
 func (c *TypeSafedClient[T, P]) Delete(ctx context.Context, o *T, opts ...firestore.Precondition) (*firestore.WriteResult, error) {
 	return c.untyped.Delete(ctx, o, opts...)
 }
 
+// TypeSafedQuery is a type-restricting wrapper of Query
 type TypeSafedQuery[T any] struct {
 	untyped *Query
 }

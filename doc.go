@@ -202,6 +202,24 @@ queries elsewhere; another process or machine for instance.
 		...
 	}
 
+# Transactions
+
+`RunTransaction` passes a new client for transaction.
+You can call methods just like outside of transaction.
+
+	err := client.RunTransaction(ctx, func(ctx context.Context, client *simplestore.Client) error {
+		err := client.Get(ctx, doc)
+		if err != nil {
+			return err
+		}
+		doc.Name = "Bob"
+		_, err = client.Set(ctx, doc)
+		return err
+	})
+	if err != nil {
+		// TODO: Handle error.
+	}
+
 # Type safed client
 
 Many parameters of simpleclient.Client is typed `any`, and you can easily create runtime errors by passing unmached types.

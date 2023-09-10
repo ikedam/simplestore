@@ -15,7 +15,12 @@ func (c *Client) Get(ctx context.Context, o any) error {
 	if err != nil {
 		return err
 	}
-	docsnap, err := doc.Get(ctx)
+	var docsnap *firestore.DocumentSnapshot
+	if c.FirestoreTransaction == nil {
+		docsnap, err = doc.Get(ctx)
+	} else {
+		docsnap, err = c.FirestoreTransaction.Get(doc)
+	}
 	if err != nil {
 		return err
 	}
@@ -45,7 +50,12 @@ func (c *Client) GetAll(ctx context.Context, os any) (any, error) {
 		validList = append(validList, doc)
 		dstList = reflect.Append(dstList, osRef.Index(idx))
 	}
-	docsnapList, err := c.FirestoreClient.GetAll(ctx, validList)
+	var docsnapList []*firestore.DocumentSnapshot
+	if c.FirestoreTransaction == nil {
+		docsnapList, err = c.FirestoreClient.GetAll(ctx, validList)
+	} else {
+		docsnapList, err = c.FirestoreTransaction.GetAll(validList)
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -64,12 +74,18 @@ func (c *Client) GetAll(ctx context.Context, os any) (any, error) {
 // Create creates a new document in firestore
 // o must be a pointer to a struct.
 // Generates and sets ID if not set.
+// WriteResult will be alwasys `nil` while transaction.
 func (c *Client) Create(ctx context.Context, o any) (*firestore.WriteResult, error) {
 	doc, setID, err := c.prepareSetDocument(o)
 	if err != nil {
 		return nil, err
 	}
-	result, err := doc.Create(ctx, o)
+	var result *firestore.WriteResult
+	if c.FirestoreTransaction == nil {
+		result, err = doc.Create(ctx, o)
+	} else {
+		err = c.FirestoreTransaction.Create(doc, o)
+	}
 	if err != nil {
 		return result, err
 	}
@@ -80,12 +96,18 @@ func (c *Client) Create(ctx context.Context, o any) (*firestore.WriteResult, err
 // Set updates a document if exists nor create a new document
 // o must be a pointer to a struct.
 // Generates and sets ID if not set.
+// WriteResult will be alwasys `nil` while transaction.
 func (c *Client) Set(ctx context.Context, o any, opts ...firestore.SetOption) (*firestore.WriteResult, error) {
 	doc, setID, err := c.prepareSetDocument(o)
 	if err != nil {
 		return nil, err
 	}
-	result, err := doc.Set(ctx, o, opts...)
+	var result *firestore.WriteResult
+	if c.FirestoreTransaction == nil {
+		result, err = doc.Set(ctx, o, opts...)
+	} else {
+		err = c.FirestoreTransaction.Set(doc, o)
+	}
 	if err != nil {
 		return result, err
 	}
@@ -95,10 +117,15 @@ func (c *Client) Set(ctx context.Context, o any, opts ...firestore.SetOption) (*
 
 // Delete deletes a document
 // o must be a pointer to a struct.
+// WriteResult will be alwasys `nil` while transaction.
 func (c *Client) Delete(ctx context.Context, o any, opts ...firestore.Precondition) (*firestore.WriteResult, error) {
 	doc, err := c.GetDocumentRefSafe(o)
 	if err != nil {
 		return nil, err
 	}
-	return doc.Delete(ctx, opts...)
+	if c.FirestoreTransaction == nil {
+		return doc.Delete(ctx, opts...)
+	} else {
+		return nil, c.FirestoreTransaction.Delete(doc, opts...)
+	}
 }
