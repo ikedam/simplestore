@@ -81,7 +81,7 @@ func (a *accessor) getDocumentRef(c *Client, pv reflect.Value, mightNew bool) (*
 			return nil, false, NewProgrammingError("ID is not set")
 		}
 	}
-	return collection.Doc(docID), true, nil
+	return collection.Doc(docID), false, nil
 }
 
 func (a *accessor) setID(pv reflect.Value, id string) {
