@@ -257,10 +257,11 @@ func (t *targetBuilder) createElement() any {
 }
 
 func (t *targetBuilder) append(o any) {
-	t.target = reflect.Append(
-		reflect.ValueOf(t.target).Elem(),
+	refSlice := reflect.ValueOf(t.target).Elem()
+	refSlice.Set(reflect.Append(
+		refSlice,
 		reflect.ValueOf(o),
-	).Addr().Interface()
+	))
 }
 
 func (c *Client) getCollectionRef(pos any) (*firestore.CollectionRef, *targetBuilder, error) {
