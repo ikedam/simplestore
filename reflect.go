@@ -120,8 +120,10 @@ func (c *Client) prepareSetDocument(o any) (*firestore.DocumentRef, func(), erro
 	if !isNew {
 		return doc, nop, nil
 	}
+	accessor.setID(pv, doc.ID)
 	return doc, func() {
-		accessor.setID(pv, doc.ID)
+		// reset
+		accessor.setID(pv, "")
 	}, nil
 }
 

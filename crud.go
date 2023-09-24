@@ -76,20 +76,24 @@ func (c *Client) GetAll(ctx context.Context, os any) (any, error) {
 // Generates and sets ID if not set.
 // WriteResult will be alwasys `nil` while transaction.
 func (c *Client) Create(ctx context.Context, o any) (*firestore.WriteResult, error) {
-	doc, setID, err := c.prepareSetDocument(o)
+	doc, resetID, err := c.prepareSetDocument(o)
 	if err != nil {
 		return nil, err
 	}
 	var result *firestore.WriteResult
 	if c.FirestoreTransaction == nil {
 		result, err = doc.Create(ctx, o)
+		if err != nil {
+			resetID()
+			return result, err
+		}
 	} else {
 		err = c.FirestoreTransaction.Create(doc, o)
+		if err != nil {
+			return result, err
+		}
+		c.transactionFailureCallbacks = append(c.transactionFailureCallbacks, resetID)
 	}
-	if err != nil {
-		return result, err
-	}
-	setID()
 	return result, nil
 }
 
@@ -98,20 +102,24 @@ func (c *Client) Create(ctx context.Context, o any) (*firestore.WriteResult, err
 // Generates and sets ID if not set.
 // WriteResult will be alwasys `nil` while transaction.
 func (c *Client) Set(ctx context.Context, o any, opts ...firestore.SetOption) (*firestore.WriteResult, error) {
-	doc, setID, err := c.prepareSetDocument(o)
+	doc, resetID, err := c.prepareSetDocument(o)
 	if err != nil {
 		return nil, err
 	}
 	var result *firestore.WriteResult
 	if c.FirestoreTransaction == nil {
 		result, err = doc.Set(ctx, o, opts...)
+		if err != nil {
+			resetID()
+			return result, err
+		}
 	} else {
 		err = c.FirestoreTransaction.Set(doc, o)
+		if err != nil {
+			return result, err
+		}
+		c.transactionFailureCallbacks = append(c.transactionFailureCallbacks, resetID)
 	}
-	if err != nil {
-		return result, err
-	}
-	setID()
 	return result, nil
 }
 

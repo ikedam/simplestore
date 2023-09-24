@@ -39,8 +39,9 @@ var KnownProjectIDEnvs = []string{
 // Client is a client for simplestore
 // This wraps firestore client. You can get raw firestore client via `FirestoreClient`.
 type Client struct {
-	FirestoreClient      *firestore.Client
-	FirestoreTransaction *firestore.Transaction
+	FirestoreClient             *firestore.Client
+	FirestoreTransaction        *firestore.Transaction
+	transactionFailureCallbacks []func()
 }
 
 // New returns a new client
