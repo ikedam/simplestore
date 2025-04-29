@@ -67,11 +67,11 @@ func (c *Client) QueryGroup(target any) *Query {
 	return q
 }
 
-// QueryNested starts a new query for target under the document specified by `parent`
+// QueryNestedSafe starts a new query for target under the document specified by `parent`
 // parent must be a pointer to a struct.
 // target must be a pointer to slice of pointers to structs.
 // target is also used as destination of `GetAll()`.
-func (c *Client) QueryNested(parent any, target any) (*Query, error) {
+func (c *Client) QueryNestedSafe(parent any, target any) (*Query, error) {
 	cgroup, tb, err := c.getNestedCollectionRef(parent, target)
 	if err != nil {
 		return nil, err
@@ -81,6 +81,18 @@ func (c *Client) QueryNested(parent any, target any) (*Query, error) {
 		tb:          tb,
 		transaction: c.FirestoreTransaction,
 	}, nil
+}
+
+// QueryNested starts a new query for target under the document specified by `parent`
+// parent must be a pointer to a struct.
+// target must be a pointer to slice of pointers to structs.
+// target is also used as destination of `GetAll()`.
+func (c *Client) QueryNested(parent any, target any) *Query {
+	q, err := c.QueryNestedSafe(parent, target)
+	if err != nil {
+		panic(err)
+	}
+	return q
 }
 
 // Iter runs query and calls callback for each document

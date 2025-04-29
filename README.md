@@ -175,7 +175,7 @@ For documents in subcollections:
 
 	var parentDoc *ParentDocument = ...
 	var childDocs []*ChildDocument
-	q := client.QueryNexted(parentDoc, &childDocs)
+	q := client.QueryNested(parentDoc, &childDocs)
 
 ## Transactions
 

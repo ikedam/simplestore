@@ -95,10 +95,7 @@ func (c *TypeSafedClient[T, P]) QueryGroup(target *[]*T) *TypeSafedQuery[T] {
 // parent must be a pointer to a struct.
 // target is also used as destination of `GetAll()`.
 func (c *TypeSafedClient[T, P]) QueryNested(parent *P, target *[]*T) (*TypeSafedQuery[T], error) {
-	q, err := c.untyped.QueryNested(parent, target)
-	if err != nil {
-		return nil, err
-	}
+	q := c.untyped.QueryNested(parent, target)
 	return &TypeSafedQuery[T]{
 		untyped: q,
 	}, nil
