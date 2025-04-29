@@ -1,6 +1,7 @@
 package simplestore
 
 import (
+	"fmt"
 	"reflect"
 
 	"cloud.google.com/go/firestore"
@@ -195,19 +196,19 @@ type targetBuilder struct {
 func newTargetBuilder(pos any) (*targetBuilder, error) {
 	posT := reflect.TypeOf(pos)
 	if posT.Kind() != reflect.Pointer {
-		return nil, NewProgrammingError("expects a pointer to a slice of pointers to structs")
+		return nil, NewProgrammingError(fmt.Sprintf("expects a pointer to a slice of pointers to structs: %T", pos))
 	}
 	osT := posT.Elem()
 	if osT.Kind() != reflect.Slice {
-		return nil, NewProgrammingError("expects a pointer to a slice of pointers to structs")
+		return nil, NewProgrammingError(fmt.Sprintf("expects a pointer to a slice of pointers to structs: %T", pos))
 	}
 	poT := osT.Elem()
 	if poT.Kind() != reflect.Pointer {
-		return nil, NewProgrammingError("value must be a pointer of a struct")
+		return nil, NewProgrammingError(fmt.Sprintf("value must be a pointer of a struct: %v", poT.String()))
 	}
 	t := poT.Elem()
 	if t.Kind() != reflect.Struct {
-		return nil, NewProgrammingError("value must be a pointer of a struct")
+		return nil, NewProgrammingError(fmt.Sprintf("value must be a pointer of a struct: %v", poT.String()))
 	}
 	return &targetBuilder{
 		target:         pos,

@@ -1,10 +1,16 @@
 package simplestore
 
 import (
+	"context"
+	"fmt"
 	"os"
+	"reflect"
 	"strings"
+	"testing"
 
+	"cloud.google.com/go/firestore"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 type TestSimpleDoc struct {
@@ -19,6 +25,22 @@ type TestChildDoc struct {
 type TestGrandChildDoc struct {
 	Parent *TestChildDoc
 	ID     string
+}
+
+type MyDocument struct {
+	ID   string
+	Name string
+}
+
+type ParentDocument struct {
+	ID   string
+	Name string
+}
+
+type ChildDocument struct {
+	Parent *ParentDocument
+	ID     string
+	Name   string
 }
 
 func ptrOf[T any](v T) *T {
@@ -97,4 +119,67 @@ func getDocumentOnlyPath(path string) string {
 		return path
 	}
 	return strings.Join(pathList[5:], "/")
+}
+
+// clearAllDocuments deletes all documents in the specified collection.
+// document should be specified with `&Document{}`.
+func clearAllDocuments(t *testing.T, doc any) {
+	ctx := context.Background()
+	batchSize := 100
+
+	accessor, err := newAccessor(reflect.TypeOf(doc))
+	require.NoError(t, err)
+	client, err := firestore.NewClient(context.Background(), getProjectID())
+	require.NoError(t, err)
+	err = DeleteCollection(ctx, client, accessor.collectionName, batchSize)
+	require.NoError(t, err)
+}
+
+func DeleteCollection(ctx context.Context, client *firestore.Client, collectionPath string, batchSize int) error {
+	collectionRef := client.Collection(collectionPath)
+	for {
+		// Get a batch of documents
+		documents, err := collectionRef.Limit(batchSize).Documents(ctx).GetAll()
+		if err != nil {
+			return err
+		}
+
+		// If no documents are left, break the loop
+		if len(documents) == 0 {
+			break
+		}
+
+		// Delete each document and its subcollections
+		for _, doc := range documents {
+			// Delete subcollections recursively
+			subcollections, err := doc.Ref.Collections(ctx).GetAll()
+			if err != nil {
+				return err
+			}
+			for _, subcollection := range subcollections {
+				err := DeleteCollection(
+					ctx,
+					client,
+					fmt.Sprintf(
+						"%v/%v/%v",
+						collectionPath,
+						doc.Ref.ID,
+						subcollection.ID,
+					),
+					batchSize,
+				)
+				if err != nil {
+					return err
+				}
+			}
+
+			// Delete the document
+			_, err = doc.Ref.Delete(ctx)
+			if err != nil {
+				return err
+			}
+		}
+	}
+
+	return nil
 }
