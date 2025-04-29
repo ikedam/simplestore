@@ -168,14 +168,15 @@ func (c *Client) GetDocumentRefListSafe(os any) ([]*firestore.DocumentRef, error
 }
 
 func (c *Client) getDocumentRefListSafeWithSameType(os any) ([]*firestore.DocumentRef, error) {
+	sliceRef := reflect.ValueOf(os)
 	accessor, err := newAccessor(reflect.TypeOf(os).Elem())
 	if err != nil {
 		return nil, err
 	}
 
 	var docList []*firestore.DocumentRef
-	for _, o := range os.([]any) {
-		doc, _, err := accessor.getDocumentRef(c, reflect.ValueOf(o), false)
+	for i := 0; i < sliceRef.Len(); i++ {
+		doc, _, err := accessor.getDocumentRef(c, sliceRef.Index(i), false)
 		if err != nil {
 			return nil, err
 		}

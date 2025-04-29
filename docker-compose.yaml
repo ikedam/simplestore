@@ -1,5 +1,14 @@
-version: '3'
 services:
+  golang:
+    image: golang:1.20.14-bookworm
+    environment:
+      - CLOUDSDK_CORE_PROJECT=testproject
+      - FIRESTORE_EMULATOR_HOST=firestore:8080
+    volumes:
+      - .:/workspace
+    working_dir: /workspace
+    depends_on:
+      - firestore
   firestore:
     build:
       context: ./firestore-emulator

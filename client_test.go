@@ -1,10 +1,12 @@
 package simplestore
 
 import (
+	"context"
 	"testing"
 
 	"cloud.google.com/go/firestore"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestGetProjectID(t *testing.T) {
@@ -46,4 +48,20 @@ func TestGetProjectID(t *testing.T) {
 			})
 		})
 	}
+}
+func TestNewClient(t *testing.T) {
+	ctx := context.Background()
+
+	client, err := New(ctx)
+	require.NoError(t, err, "expected no error while creating client")
+	assert.NotNil(t, client, "client should not be nil")
+}
+
+func TestNewWithProjectID(t *testing.T) {
+	ctx := context.Background()
+	projectID := "test-project"
+
+	client, err := NewWithProjectID(ctx, projectID)
+	require.NoError(t, err, "expected no error while creating client with project ID")
+	assert.NotNil(t, client, "client should not be nil")
 }
