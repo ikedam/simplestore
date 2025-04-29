@@ -43,6 +43,8 @@ func TestQueryNestedDocuments(t *testing.T) {
 	parent := &ParentDocument{ID: "parent1", Name: "Parent"}
 	child1 := &ChildDocument{Parent: parent, ID: "child1", Name: "Child1"}
 	child2 := &ChildDocument{Parent: parent, ID: "child2", Name: "Child2"}
+	_, err = client.Set(ctx, parent)
+	assert.NoError(t, err)
 	_, err = client.Set(ctx, child1)
 	assert.NoError(t, err)
 	_, err = client.Set(ctx, child2)

@@ -139,7 +139,12 @@ func DeleteCollection(ctx context.Context, client *firestore.Client, collectionP
 	collectionRef := client.Collection(collectionPath)
 	for {
 		// Get a batch of documents
-		documents, err := collectionRef.Limit(batchSize).Documents(ctx).GetAll()
+		var documents []*firestore.DocumentSnapshot
+		err := client.RunTransaction(ctx, func(ctx context.Context, t *firestore.Transaction) error {
+			var err error
+			documents, err = t.Documents(collectionRef.Limit(batchSize)).GetAll()
+			return err
+		})
 		if err != nil {
 			return err
 		}
