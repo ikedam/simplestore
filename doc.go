@@ -31,7 +31,7 @@ simpleclient utilizes reflection, the performance is not so good.
 # Creating a Client
 
 	ctx := context.Background()
-	client, err := simplestore.NewClient(ctx)
+	client, err := simplestore.New(ctx)
 	if err != nil {
 		// TODO: Handle error.
 	}
@@ -68,14 +68,14 @@ Example with parent:
 		Name string
 	}
 
-	type Document struct {
+	type ChildDocument struct {
 		Parent *ParentDocument
 		ID     string
 		Name   string
 	}
 
-	// This document will be stored as /ParentDocument/c/Document/123
-	doc := &Docuemnt {
+	// This document will be stored as /ParentDocument/c/ChildDocument/123
+	doc := &ChildDocument {
 		ParentDocument: &ParentDocument {
 			ID:   "c",
 			Name: "cryptography",
@@ -84,8 +84,8 @@ Example with parent:
 		Name: "Alice",
 	}
 
-	// This document will be stored as /Document/123
-	doc := &Docuemnt {
+	// This document will be stored as /ChildDocument/123
+	doc := &ChildDocument {
 		ParentDocument: nil,
 		ID: "123",
 		Name: "Alice",
@@ -150,57 +150,53 @@ For multiple documents
 
 # Queries
 
-You can use SQL to select documents from a collection. Begin with the collection, and
-build up a query using Select, Where and other methods of Query.
+Start queries with `Query()`. Pass pointer to the slice:
 
-	q := states.Where("pop", ">", 10).OrderBy("pop", firestore.Desc)
+	var docs []*MyDocument
+	q := client.Query(*docs).OrderBy("name", firestore.Desc)
 
-Supported operators include '<', '<=', '>', '>=', '==', 'in', 'array-contains', and
-'array-contains-any'.
+Following methods can be appllied:
 
-Call the Query's Documents method to get an iterator, and use it like
-the other Google Cloud Client iterators.
+* `Where()`
+* `OrderBy()`
+* `Offset()`
+* `Limit()`
+* `LimitToLast()`
+* `StartAt()`
+* `StartAfter()`
+* `EndAt()`
+* `EndBefore()`
 
-	iter := q.Documents(ctx)
-	defer iter.Stop()
-	for {
-		doc, err := iter.Next()
-		if err == iterator.Done {
-			break
-		}
-		if err != nil {
-			// TODO: Handle error.
-		}
-		fmt.Println(doc.Data())
+To get documents, two ways are provided: `Iter()` and `GetAll()`.
+
+With `Iter()`:
+
+	err := q.Iter(ctx, func(o any) error {
+		doc := o.(*MyDocument)
+		fmt.Println(doc)
+		// Returning error stops the iteration.
+		// The error will be returned from Iter().
+		return nil
+	}
+	if err != nil {
+		// TODO: Handle error.
 	}
 
-To get all the documents in a collection, you can use the collection itself
-as a query.
+With `GetAll()`:
 
-	iter = client.Collection("States").Documents(ctx)
-
-# Collection Group Partition Queries
-
-You can partition the documents of a Collection Group allowing for smaller subqueries.
-
-	collectionGroup = client.CollectionGroup("States")
-	partitions, err = collectionGroup.GetPartitionedQueries(ctx, 20)
-
-You can also Serialize/Deserialize queries making it possible to run/stream the
-queries elsewhere; another process or machine for instance.
-
-	queryProtos := make([][]byte, 0)
-	for _, query := range partitions {
-		protoBytes, err := query.Serialize()
-		// handle err
-		queryProtos = append(queryProtos, protoBytes)
-		...
+	err := q.GetAll(ctx)
+	if err != nil {
+		// TODO: Handle error.
+	}
+	for _, doc := range docs {
+		fmt.Println(doc)
 	}
 
-	for _, protoBytes := range queryProtos {
-		query, err := client.CollectionGroup("").Deserialize(protoBytes)
-		...
-	}
+For documents in subcollections:
+
+	var parentDoc *ParentDocument = ...
+	var childDocs []*ChildDocument
+	q := client.QueryNexted(parentDoc, &childDocs)
 
 # Transactions
 
