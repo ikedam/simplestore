@@ -14,6 +14,7 @@ const (
 
 type accessor struct {
 	parentAccessor *accessor
+	supportsIDer   bool
 	t              reflect.Type
 	collectionName string
 }
@@ -29,12 +30,15 @@ func newAccessor(pt reflect.Type) (*accessor, error) {
 	if t.Kind() != reflect.Struct {
 		return nil, NewProgrammingError("value must be a pointer of a struct")
 	}
-	idF, ok := t.FieldByName(IDFieldName)
-	if !ok {
-		return nil, NewProgrammingErrorf(IDFieldName+" field doesn't exist: %s.%s", t.PkgPath(), t.Name())
-	}
-	if idF.Type.Kind() != reflect.String {
-		return nil, NewProgrammingErrorf(IDFieldName+" field must be a string: %s.%s", t.PkgPath(), t.Name())
+	a.supportsIDer = pt.Implements(reflect.TypeOf((*IDer)(nil)).Elem())
+	if !a.supportsIDer {
+		idF, ok := t.FieldByName(IDFieldName)
+		if !ok {
+			return nil, NewProgrammingErrorf(IDFieldName+" field doesn't exist: %s.%s", t.PkgPath(), t.Name())
+		}
+		if idF.Type.Kind() != reflect.String {
+			return nil, NewProgrammingErrorf(IDFieldName+" field must be a string: %s.%s", t.PkgPath(), t.Name())
+		}
 	}
 	a.collectionName = t.Name()
 
@@ -57,11 +61,18 @@ func (a *accessor) getDocumentRef(c *Client, pv reflect.Value, mightNew bool) (*
 	if pv.IsNil() {
 		return nil, false, nil
 	}
-	v := pv.Elem()
-	docID := v.FieldByName(IDFieldName).String()
+	var docID string
+	if a.supportsIDer {
+		ider := pv.Interface().(IDer)
+		docID = ider.GetDocumentID()
+	} else {
+		v := pv.Elem()
+		docID = v.FieldByName(IDFieldName).String()
+	}
 	var collection *firestore.CollectionRef
 
 	if a.parentAccessor != nil {
+		v := pv.Elem()
 		pparent := v.FieldByName(ParentFieldName)
 		parentDoc, _, err := a.parentAccessor.getDocumentRef(c, pparent, false)
 		if err != nil {
@@ -86,6 +97,11 @@ func (a *accessor) getDocumentRef(c *Client, pv reflect.Value, mightNew bool) (*
 }
 
 func (a *accessor) setID(pv reflect.Value, id string) {
+	if a.supportsIDer {
+		ider := pv.Interface().(IDer)
+		ider.SetDocumentID(id)
+		return
+	}
 	v := pv.Elem()
 	v.FieldByName(IDFieldName).SetString(id)
 }

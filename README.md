@@ -70,6 +70,50 @@ Example with parent:
 		Name: "Alice",
 	}
 
+## GetDocumentID() / SetDocumentID()
+
+simplestore treats `ID` field as document ID by default.
+You can define `GetDocumentID()` and `SetDocumentID()` instead.
+
+Interface:
+
+	type IDer interface {
+		GetDocumentID() string
+		SetDocumentID(id string)
+	}
+
+Example Implementation:
+
+	type CustomIDDocument struct {
+		MyID string
+		Name string
+	}
+
+	func (d *CustomIDDocument) GetDocumentID() string {
+		if d.MyID == "" {
+			return ""
+		}
+		// Suffix with fnv32 to avoid hotspot
+		h := fnv.New32()
+		h.Write([]byte(d.MyID))
+		return fmt.Sprintf("%08x.%s", h.Sum32(), d.MyID)
+	}
+
+	func (d *CustomIDDocument) SetDocumentID(id string) {
+		if id == "" {
+			d.MyID = ""
+			return
+		}
+		idx := strings.Index(id, ".")
+		if s < 0 {
+			// strange!
+			d.MyID = ""
+			return
+		}
+		d.MyID = id[s+1:]
+	}
+
+
 ## Reading
 
 For a simple document:
