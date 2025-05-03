@@ -62,6 +62,28 @@ func NewWithProjectID(ctx context.Context, projectID string, opts ...option.Clie
 	}, nil
 }
 
+// NewClientWithDatabase returns a new clinet
+func NewClientWithDatabase(ctx context.Context, database string, opts ...option.ClientOption) (*Client, error) {
+	client, err := firestore.NewClientWithDatabase(ctx, getProjectID(), database, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return &Client{
+		FirestoreClient: client,
+	}, nil
+}
+
+// NewClientWithDatabase returns a new clinet
+func NewClientWithProjectIDAndDatabase(ctx context.Context, projectID, database string, opts ...option.ClientOption) (*Client, error) {
+	client, err := firestore.NewClientWithDatabase(ctx, projectID, database, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return &Client{
+		FirestoreClient: client,
+	}, nil
+}
+
 // Close cleans resource of this client
 func (c *Client) Close() error {
 	return c.FirestoreClient.Close()
