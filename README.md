@@ -248,3 +248,56 @@ You can use TypeSafedClient to avoid type assertion errors:
 		ID: "docid",
 	}
 	err := TypeSafed[MyDocument](client).Get(ctx, doc)	// you can restrict to pass *MyDocument
+
+
+# Table Mapping
+
+simplestore supports table mapping to customize collection names and set readonly flags for specific structs.
+
+## Basic Table Mapping
+
+You can map struct names to custom collection names:
+
+	client.AddTableMaps(map[string]string{
+		"MyDocument": "custom_collection",
+		"User":       "users",
+	})
+
+## Readonly Table Mapping
+
+You can also set collections as readonly to prevent write operations:
+
+	client.AddReadonlyTableMaps(map[string]string{
+		"ReadOnlyDocument": "readonly_collection",
+		"Config":           "configs",
+	})
+
+When a collection is marked as readonly, all write operations (Create, Set, Delete) will return an error.
+
+## Example Usage
+
+	type MyDocument struct {
+		ID   string
+		Name string
+	}
+
+	type ReadOnlyDocument struct {
+		ID   string
+		Name string
+	}
+
+	// Set up table mappings
+	client.AddTableMaps(map[string]string{
+		"MyDocument": "custom_collection",
+	})
+	client.AddReadonlyTableMaps(map[string]string{
+		"ReadOnlyDocument": "readonly_collection",
+	})
+
+	// This will be stored in "custom_collection"
+	doc := &MyDocument{Name: "Test"}
+	_, err := client.Create(ctx, doc)
+
+	// This will fail with readonly error
+	readonlyDoc := &ReadOnlyDocument{Name: "Test"}
+	_, err := client.Create(ctx, readonlyDoc) // Error: cannot create document in readonly collection

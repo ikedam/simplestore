@@ -127,7 +127,7 @@ func clearAllDocuments(t *testing.T, doc any) {
 	ctx := context.Background()
 	batchSize := 100
 
-	accessor, err := newAccessor(reflect.TypeOf(doc))
+	accessor, err := newAccessor(reflect.TypeOf(doc), nil)
 	require.NoError(t, err)
 	client, err := firestore.NewClient(context.Background(), getProjectID())
 	require.NoError(t, err)

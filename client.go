@@ -36,12 +36,19 @@ var KnownProjectIDEnvs = []string{
 	"GOOGLE_CLOUD_PROJECT",
 }
 
+// TableMapEntry represents a table mapping configuration
+type TableMapEntry struct {
+	CollectionName string
+	ReadOnly       bool
+}
+
 // Client is a client for simplestore
 // This wraps firestore client. You can get raw firestore client via `FirestoreClient`.
 type Client struct {
 	FirestoreClient             *firestore.Client
 	FirestoreTransaction        *firestore.Transaction
 	transactionFailureCallbacks []func()
+	tableMaps                   map[string]TableMapEntry
 }
 
 // New returns a new client
@@ -109,4 +116,32 @@ func getProjectID() string {
 		}
 	}
 	return firestore.DetectProjectID
+}
+
+// AddTableMaps adds table mapping configurations to the client
+// tableMap maps struct names to collection names
+func (c *Client) AddTableMaps(tableMap map[string]string) {
+	if c.tableMaps == nil {
+		c.tableMaps = make(map[string]TableMapEntry, len(tableMap))
+	}
+	for structName, collectionName := range tableMap {
+		c.tableMaps[structName] = TableMapEntry{
+			CollectionName: collectionName,
+			ReadOnly:       false,
+		}
+	}
+}
+
+// AddReadonlyTableMaps adds readonly table mapping configurations to the client
+// tableMap maps struct names to collection names
+func (c *Client) AddReadonlyTableMaps(tableMap map[string]string) {
+	if c.tableMaps == nil {
+		c.tableMaps = make(map[string]TableMapEntry, len(tableMap))
+	}
+	for structName, collectionName := range tableMap {
+		c.tableMaps[structName] = TableMapEntry{
+			CollectionName: collectionName,
+			ReadOnly:       true,
+		}
+	}
 }

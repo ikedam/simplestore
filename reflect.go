@@ -17,9 +17,10 @@ type accessor struct {
 	supportsIDer   bool
 	t              reflect.Type
 	collectionName string
+	readOnly       bool
 }
 
-func newAccessor(pt reflect.Type) (*accessor, error) {
+func newAccessor(pt reflect.Type, tableMaps map[string]TableMapEntry) (*accessor, error) {
 	if pt.Kind() != reflect.Pointer {
 		return nil, NewProgrammingError("value must be a pointer of a struct")
 	}
@@ -42,6 +43,14 @@ func newAccessor(pt reflect.Type) (*accessor, error) {
 	}
 	a.collectionName = t.Name()
 
+	// Apply table mapping if available
+	if tableMaps != nil {
+		if entry, exists := tableMaps[t.Name()]; exists {
+			a.collectionName = entry.CollectionName
+			a.readOnly = entry.ReadOnly
+		}
+	}
+
 	parentF, ok := t.FieldByName("Parent")
 	if ok {
 		parentT := parentF.Type
@@ -49,7 +58,7 @@ func newAccessor(pt reflect.Type) (*accessor, error) {
 			return nil, NewProgrammingError("Parent must be a pointer of a struct")
 		}
 		var err error
-		a.parentAccessor, err = newAccessor(parentT)
+		a.parentAccessor, err = newAccessor(parentT, tableMaps)
 		if err != nil {
 			return nil, NewProgrammingErrorf("invalid parent in %s.%s: %v", t.PkgPath(), t.Name(), err.Error())
 		}
@@ -111,7 +120,7 @@ func (a *accessor) setID(pv reflect.Value, id string) {
 // Returns nil if object is a nil.
 // Error if ID is not set.
 func (c *Client) GetDocumentRefSafe(o any) (*firestore.DocumentRef, error) {
-	accessor, err := newAccessor(reflect.TypeOf(o))
+	accessor, err := newAccessor(reflect.TypeOf(o), c.tableMaps)
 	if err != nil {
 		return nil, err
 	}
@@ -122,7 +131,7 @@ func (c *Client) GetDocumentRefSafe(o any) (*firestore.DocumentRef, error) {
 func nop() {}
 
 func (c *Client) prepareSetDocument(o any) (*firestore.DocumentRef, func(), error) {
-	accessor, err := newAccessor(reflect.TypeOf(o))
+	accessor, err := newAccessor(reflect.TypeOf(o), c.tableMaps)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -186,7 +195,7 @@ func (c *Client) GetDocumentRefListSafe(os any) ([]*firestore.DocumentRef, error
 
 func (c *Client) getDocumentRefListSafeWithSameType(os any) ([]*firestore.DocumentRef, error) {
 	sliceRef := reflect.ValueOf(os)
-	accessor, err := newAccessor(reflect.TypeOf(os).Elem())
+	accessor, err := newAccessor(reflect.TypeOf(os).Elem(), c.tableMaps)
 	if err != nil {
 		return nil, err
 	}
@@ -209,7 +218,7 @@ type targetBuilder struct {
 	collectionName string
 }
 
-func newTargetBuilder(pos any) (*targetBuilder, error) {
+func newTargetBuilder(pos any, tableMaps map[string]TableMapEntry) (*targetBuilder, error) {
 	posT := reflect.TypeOf(pos)
 	if posT.Kind() != reflect.Pointer {
 		return nil, NewProgrammingError(fmt.Sprintf("expects a pointer to a slice of pointers to structs: %T", pos))
@@ -226,14 +235,23 @@ func newTargetBuilder(pos any) (*targetBuilder, error) {
 	if t.Kind() != reflect.Struct {
 		return nil, NewProgrammingError(fmt.Sprintf("value must be a pointer of a struct: %v", poT.String()))
 	}
+
+	collectionName := t.Name()
+	// Apply table mapping if available
+	if tableMaps != nil {
+		if entry, exists := tableMaps[t.Name()]; exists {
+			collectionName = entry.CollectionName
+		}
+	}
+
 	return &targetBuilder{
 		target:         pos,
 		elementType:    t,
-		collectionName: t.Name(),
+		collectionName: collectionName,
 	}, nil
 }
 
-func newTargetBuilderWithParent(parent any, pos any) (*targetBuilder, error) {
+func newTargetBuilderWithParent(parent any, pos any, tableMaps map[string]TableMapEntry) (*targetBuilder, error) {
 	posT := reflect.TypeOf(pos)
 	if posT.Kind() != reflect.Pointer {
 		return nil, NewProgrammingError("expects a pointer to a slice of pointers to structs")
@@ -258,11 +276,20 @@ func newTargetBuilderWithParent(parent any, pos any) (*targetBuilder, error) {
 	if !parentT.AssignableTo(parentF.Type) {
 		return nil, NewProgrammingErrorf(ParentFieldName+" field must be %s.%s", parentT.PkgPath(), parentT.Name())
 	}
+
+	collectionName := t.Name()
+	// Apply table mapping if available
+	if tableMaps != nil {
+		if entry, exists := tableMaps[t.Name()]; exists {
+			collectionName = entry.CollectionName
+		}
+	}
+
 	return &targetBuilder{
 		target:         pos,
 		parent:         parent,
 		elementType:    t,
-		collectionName: t.Name(),
+		collectionName: collectionName,
 	}, nil
 }
 
@@ -283,7 +310,7 @@ func (t *targetBuilder) append(o any) {
 }
 
 func (c *Client) getCollectionRef(pos any) (*firestore.CollectionRef, *targetBuilder, error) {
-	tb, err := newTargetBuilder(pos)
+	tb, err := newTargetBuilder(pos, c.tableMaps)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -291,7 +318,7 @@ func (c *Client) getCollectionRef(pos any) (*firestore.CollectionRef, *targetBui
 }
 
 func (c *Client) getCollectionGroupRef(pos any) (*firestore.CollectionGroupRef, *targetBuilder, error) {
-	tb, err := newTargetBuilder(pos)
+	tb, err := newTargetBuilder(pos, c.tableMaps)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -299,7 +326,7 @@ func (c *Client) getCollectionGroupRef(pos any) (*firestore.CollectionGroupRef, 
 }
 
 func (c *Client) getNestedCollectionRef(parent any, pos any) (*firestore.CollectionRef, *targetBuilder, error) {
-	tb, err := newTargetBuilderWithParent(parent, pos)
+	tb, err := newTargetBuilderWithParent(parent, pos, c.tableMaps)
 	if err != nil {
 		return nil, nil, err
 	}
