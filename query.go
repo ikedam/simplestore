@@ -188,12 +188,12 @@ func (q *Query) StartAfter(docSnapshotOrFieldValues ...interface{}) *Query {
 func (q *Query) EndAt(docSnapshotOrFieldValues ...interface{}) *Query {
 	newQ := *q
 	newQ.q = q.q.EndAt(docSnapshotOrFieldValues...)
-	return q
+	return &newQ
 }
 
 // EndBefore set the end position of the query
 func (q *Query) EndBefore(docSnapshotOrFieldValues ...interface{}) *Query {
 	newQ := *q
 	newQ.q = q.q.EndBefore(docSnapshotOrFieldValues...)
-	return q
+	return &newQ
 }
