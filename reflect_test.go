@@ -92,7 +92,7 @@ func (s *ReflectTestSuite) TestNewAccessor() {
 	}
 	for _, testcase := range testcases {
 		t.Run(testcase.Name, func(t *testing.T) {
-			_, err := newAccessor(reflect.TypeOf(testcase.Doc))
+			_, err := newAccessor(reflect.TypeOf(testcase.Doc), nil)
 			if testcase.Error != nil {
 				testcase.Error(t, err)
 			} else {
@@ -125,7 +125,7 @@ func (s *ReflectTestSuite) TestGetDocumentRefWithoutParent() {
 	err := NewWithScope(ctx, func(c *Client) error {
 		for _, testcase := range testcases {
 			t.Run(testcase.Name, func(t *testing.T) {
-				accessor, err := newAccessor(reflect.TypeOf(testcase.Doc))
+				accessor, err := newAccessor(reflect.TypeOf(testcase.Doc), nil)
 				require.NoError(t, err)
 				var mightNewList []bool
 				if testcase.MightNew == nil {

@@ -76,6 +76,14 @@ func (c *Client) GetAll(ctx context.Context, os any) (any, error) {
 // Generates and sets ID if not set.
 // WriteResult will be alwasys `nil` while transaction.
 func (c *Client) Create(ctx context.Context, o any) (*firestore.WriteResult, error) {
+	accessor, err := newAccessor(reflect.TypeOf(o), c.tableMaps)
+	if err != nil {
+		return nil, err
+	}
+	if accessor.readOnly {
+		return nil, NewProgrammingErrorf("cannot create document in readonly collection: %s", accessor.collectionName)
+	}
+
 	doc, resetID, err := c.prepareSetDocument(o)
 	if err != nil {
 		return nil, err
@@ -102,6 +110,14 @@ func (c *Client) Create(ctx context.Context, o any) (*firestore.WriteResult, err
 // Generates and sets ID if not set.
 // WriteResult will be alwasys `nil` while transaction.
 func (c *Client) Set(ctx context.Context, o any, opts ...firestore.SetOption) (*firestore.WriteResult, error) {
+	accessor, err := newAccessor(reflect.TypeOf(o), c.tableMaps)
+	if err != nil {
+		return nil, err
+	}
+	if accessor.readOnly {
+		return nil, NewProgrammingErrorf("cannot set document in readonly collection: %s", accessor.collectionName)
+	}
+
 	doc, resetID, err := c.prepareSetDocument(o)
 	if err != nil {
 		return nil, err
@@ -127,6 +143,14 @@ func (c *Client) Set(ctx context.Context, o any, opts ...firestore.SetOption) (*
 // o must be a pointer to a struct.
 // WriteResult will be alwasys `nil` while transaction.
 func (c *Client) Delete(ctx context.Context, o any, opts ...firestore.Precondition) (*firestore.WriteResult, error) {
+	accessor, err := newAccessor(reflect.TypeOf(o), c.tableMaps)
+	if err != nil {
+		return nil, err
+	}
+	if accessor.readOnly {
+		return nil, NewProgrammingErrorf("cannot delete document in readonly collection: %s", accessor.collectionName)
+	}
+
 	doc, err := c.GetDocumentRefSafe(o)
 	if err != nil {
 		return nil, err
