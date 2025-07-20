@@ -2,8 +2,10 @@ package simplestore
 
 import (
 	"context"
+	"errors"
 
 	"cloud.google.com/go/firestore"
+	"cloud.google.com/go/firestore/apiv1/firestorepb"
 	"google.golang.org/api/iterator"
 )
 
@@ -196,4 +198,17 @@ func (q *Query) EndBefore(docSnapshotOrFieldValues ...interface{}) *Query {
 	newQ := *q
 	newQ.q = q.q.EndBefore(docSnapshotOrFieldValues...)
 	return &newQ
+}
+
+func (q *Query) Count(ctx context.Context) (int64, error) {
+	results, err := q.q.NewAggregationQuery().WithCount("all").Get(ctx)
+	if err != nil {
+		return 0, err
+	}
+	count, ok := results["all"]
+	if !ok {
+		return 0, errors.New("firestore: couldn't get alias for COUNT from results")
+	}
+	countValue := count.(*firestorepb.Value)
+	return countValue.GetIntegerValue(), nil
 }

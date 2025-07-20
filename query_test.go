@@ -61,3 +61,36 @@ func TestQueryNestedDocuments(t *testing.T) {
 	assert.Equal(t, "Child1", childDocs[0].Name)
 	assert.Equal(t, "Child2", childDocs[1].Name)
 }
+
+func TestCount(t *testing.T) {
+	ctx := context.Background()
+	client, err := New(ctx)
+	assert.NoError(t, err)
+
+	clearAllDocuments(t, &MyDocument{})
+
+	// Query documents
+	var docs []*MyDocument
+	q := client.Query(&docs)
+	count, err := q.Count(ctx)
+	assert.NoError(t, err)
+	assert.Equal(t, int64(0), count)
+
+	// Prepare test data
+	doc1 := &MyDocument{ID: "docid1", Name: "Alice"}
+	doc2 := &MyDocument{ID: "docid2", Name: "Bob"}
+	_, err = client.Set(ctx, doc1)
+	assert.NoError(t, err)
+	_, err = client.Set(ctx, doc2)
+	assert.NoError(t, err)
+
+	// Query documents
+	count, err = q.Count(ctx)
+	assert.NoError(t, err)
+	assert.Equal(t, int64(2), count)
+
+	// Query documents
+	count, err = q.Where("Name", "==", "Alice").Count(ctx)
+	assert.NoError(t, err)
+	assert.Equal(t, int64(1), count)
+}
