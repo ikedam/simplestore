@@ -105,12 +105,12 @@ Example Implementation:
 			return
 		}
 		idx := strings.Index(id, ".")
-		if s < 0 {
+		if idx < 0 {
 			// strange!
 			d.MyID = ""
 			return
 		}
-		d.MyID = id[s+1:]
+		d.MyID = id[idx+1:]
 	}
 
 
@@ -301,3 +301,16 @@ When a collection is marked as readonly, all write operations (Create, Set, Dele
 	// This will fail with readonly error
 	readonlyDoc := &ReadOnlyDocument{Name: "Test"}
 	_, err := client.Create(ctx, readonlyDoc) // Error: cannot create document in readonly collection
+
+# Tests with Firestore Emulator
+
+`github.com/ikedam/simplestore/simplestoretest` provides the following testing helpers for Firestore Emulator:
+
+* `ClearFirestore()`: clears all data from the Firestore Emulator database. This is useful for ensuring test isolation.
+* `FirestoreTestSuite`: [`testify/suite.Suite`](https://pkg.go.dev/github.com/stretchr/testify/suite#Suite) that provides:
+	* Each test suite gets a unique database ID to avoid conflicts between test packages. A pre-configured simple client connecting to that database is also provided.
+	* Clears the database after each test to ensure test isolation.
+
+This is especially useful when your application consists of multiple packages, as Go tests may run in parallel and cause conflicts in the Firestore Emulator.
+
+See [example/example_test.go](example/example_test.go) for example usage.

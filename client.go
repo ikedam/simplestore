@@ -47,6 +47,8 @@ type TableMapEntry struct {
 type Client struct {
 	FirestoreClient             *firestore.Client
 	FirestoreTransaction        *firestore.Transaction
+	ProjectID                   string
+	DatabaseID                  string
 	transactionFailureCallbacks []func()
 	tableMaps                   map[string]TableMapEntry
 }
@@ -60,24 +62,12 @@ func New(ctx context.Context, opts ...option.ClientOption) (*Client, error) {
 
 // NewWithProjectID returns a new client
 func NewWithProjectID(ctx context.Context, projectID string, opts ...option.ClientOption) (*Client, error) {
-	client, err := firestore.NewClient(ctx, projectID, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return &Client{
-		FirestoreClient: client,
-	}, nil
+	return NewClientWithProjectIDAndDatabase(ctx, projectID, firestore.DefaultDatabaseID, opts...)
 }
 
 // NewClientWithDatabase returns a new clinet
 func NewClientWithDatabase(ctx context.Context, database string, opts ...option.ClientOption) (*Client, error) {
-	client, err := firestore.NewClientWithDatabase(ctx, getProjectID(), database, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return &Client{
-		FirestoreClient: client,
-	}, nil
+	return NewClientWithProjectIDAndDatabase(ctx, getProjectID(), database, opts...)
 }
 
 // NewClientWithDatabase returns a new clinet
@@ -86,8 +76,14 @@ func NewClientWithProjectIDAndDatabase(ctx context.Context, projectID, database 
 	if err != nil {
 		return nil, err
 	}
+	actualProjectID := projectID
+	if actualProjectID == firestore.DetectProjectID {
+		actualProjectID = ""
+	}
 	return &Client{
 		FirestoreClient: client,
+		ProjectID:       actualProjectID,
+		DatabaseID:      database,
 	}, nil
 }
 
