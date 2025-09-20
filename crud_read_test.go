@@ -64,6 +64,37 @@ func TestGetMultipleDocuments(t *testing.T) {
 	assert.Equal(t, doc2.Name, retrievedDocs[1].Name)
 }
 
+func TestGetAllWithNonExistentDocuments(t *testing.T) {
+	clearAllDocuments(t, &MyDocument{})
+	ctx := context.Background()
+	client, err := New(ctx)
+	require.NoError(t, err)
+
+	// Create only one test document
+	doc1 := &MyDocument{
+		ID:   "docid1",
+		Name: "Name1",
+	}
+	_, err = client.Set(ctx, doc1)
+	require.NoError(t, err)
+
+	// Try to retrieve multiple documents including non-existent ones
+	retrievedDocs := []*MyDocument{
+		{ID: "docid1"}, // exists
+		{ID: "docid2"}, // does not exist
+		{ID: "docid3"}, // does not exist
+	}
+	result, err := client.GetAll(ctx, retrievedDocs)
+	require.NoError(t, err)
+
+	// The result should only contain the existing document
+	resultSlice, ok := result.([]*MyDocument)
+	require.True(t, ok, "Result should be a slice of *MyDocument")
+
+	// Should only have 1 document (the existing one)
+	assert.Equal(t, []*MyDocument{doc1}, resultSlice)
+}
+
 func TestReadWithParent(t *testing.T) {
 	clearAllDocuments(t, &ParentDocument{})
 	ctx := context.Background()
