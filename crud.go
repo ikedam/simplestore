@@ -59,16 +59,21 @@ func (c *Client) GetAll(ctx context.Context, os any) (any, error) {
 	if err != nil {
 		return nil, err
 	}
+	// make retList as same type of os
+	retList := reflect.MakeSlice(osRef.Type(), 0, dstList.Len())
 	for idx, docsnap := range docsnapList {
 		if !docsnap.Exists() {
 			continue
 		}
-		err := docsnap.DataTo(dstList.Index(idx).Interface())
+		elem := dstList.Index(idx)
+		err := docsnap.DataTo(elem.Interface())
 		if err != nil {
 			return nil, err
 		}
+		// Append the populated element to dstList
+		retList = reflect.Append(retList, elem)
 	}
-	return dstList.Interface(), nil
+	return retList.Interface(), nil
 }
 
 // Create creates a new document in firestore
